@@ -2,15 +2,27 @@
 
 namespace MarioFlores\Proxynpm;
 
-use MarioFlores\Proxynpm\Database;
 use GuzzleHttp\Client;
-use GuzzleHttp\Psr7;
 use GuzzleHttp\Exception\RequestException;
+use MarioFlores\Proxynpm\Database;
+use Exception; 
 
 class Proxynpm {
 
     public $output = false;
     public $path;
+
+    function __construct($path) {
+        $this->path = $path; 
+        if (empty($this->path)) {
+            throw new Exception("You did not set the proxy file path");
+        }
+        if(!is_file(FCPATH.$this->path.'.json')){
+            $file = fopen(FCPATH.$this->path.'.json'); 
+            fwrite($file, ''); 
+            fclose($file); 
+        }
+    }
 
     public function getProxy() {
 
@@ -25,9 +37,9 @@ class Proxynpm {
                 $this->output('Deleted proxy ');
             } else {
                 return [
-                    'ip' => $proxy->ip, 
-                    'port' => $proxy->port
-                ]; 
+                    'ip' => $proxy->ip,
+                    'port' => $proxy->port,
+                ];
             }
         }
     }
@@ -35,9 +47,9 @@ class Proxynpm {
     public function checkStock() {
         $stock = Database::all()->count();
         if ($stock < 50) {
-            
-            $this->refresh(); 
-            $proxys = $this->readFreshList(); 
+
+            $this->refresh();
+            $proxys = $this->readFreshList();
             Database::insert($proxys);
         }
     }
@@ -46,23 +58,23 @@ class Proxynpm {
         $client = new Client([
             'headers' => [
                 'User-Agent' => "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:47.0) Gecko/20100101 Firefox/47.0",
-                'Accept-Language' => "en-US,en;q=0.5"
+                'Accept-Language' => "en-US,en;q=0.5",
             ],
             'timeout' => 60,
             'cookies' => new \GuzzleHttp\Cookie\CookieJar,
             'http_errors' => false,
-            'allow_redirects' => true
+            'allow_redirects' => true,
         ]);
         try {
             $response = $client->request('GET', 'http://agency-systems.com/home/proxys/', [
                 'proxy' => 'tcp://' . $proxy->ip . ':' . $proxy->port,
                 'timeout' => 60,
-                'http_errors' => false
+                'http_errors' => false,
             ]);
             if ($response->getStatusCode() == 200) {
                 $this->output('response was 200 ');
                 $header = $response->getHeader('Content-Type');
-                $this->output($header[0]); 
+                $this->output($header[0]);
                 if (strpos($header[0], 'application/json') === false) {
                     $this->output('Response was not json ');
                     return false;
@@ -105,20 +117,20 @@ class Proxynpm {
     }
 
     function readFreshList() {
-        $http_list = array(); 
-        $proxys = file_get_contents($this->path . '.json');
+        $http_list = array();
+        $proxys = file_get_contents(FCPATH.$this->path . '.json');
         $proxys = json_decode($proxys);
-        if(!empty($proxys)){
-            foreach($proxys as $proxy){
-                if(in_array('http', $proxy->protocols)){
+        if (!empty($proxys)) {
+            foreach ($proxys as $proxy) {
+                if (in_array('http', $proxy->protocols)) {
                     $http_list[] = [
-                        'ip' => $proxy->ipAddress, 
-                        'port' => $proxy->port
-                    ]; 
+                        'ip' => $proxy->ipAddress,
+                        'port' => $proxy->port,
+                    ];
                 }
             }
         }
-        return $http_list; 
+        return $http_list;
     }
 
 }
